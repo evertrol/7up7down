@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<html>
+	<head>
+		<meta charset="utf-8">
+		<style type="text/css">
+		body {
+			display:flex;
+			flex-direction:column;
+			justify-content:center;
+			align-content:center;
+			        align-items: center;
+		}
+		input {
+			display: block;
+		}
+
+		section#bids-and-scores {
+			display: none;
+		}
+
+		table {
+			border-collapse: collapse;
+		}
+		td {
+			border-bottom: 1px solid #666;
+			padding: 1em 1px;
+		}
+		td:nth-child(odd) {
+			border-left: 1px solid #aaa;
+			border-right: 1px solid #666;
+		}
+		td:nth-child(even) {
+			border-left: 1px solid #666;
+			border-right: 1px solid #aaa;
+		}
+
+		tbody tr td {
+			padding: 0;
+		}
+		tbody tr td {
+			padding: 0;
+			margin: 0;
+		}
+		
+		tbody tr td div {
+			height: 2px;
+			overflow-y: hidden;
+		}
+
+		tbody tr select, tbody tr input {
+			visibility: hidden;
+		}
+			
+		tr.active {
+			background-color: #ff6666;
+		}
+		tr.active td div, tr.finished td div {
+			height: auto;
+			overflow-y: visible;
+		}
+		tr.active select, tr.finished select {
+			visibility: visible;
+		}
+		tr.active input, tr.finished input {
+			visibility: visible;
+		}
+
+		tr.finished {
+			background-color: #ffcccc;
+		}
+
+			</style>
+	</head>
+<body>
+
+	<section id="player-name-entry">
+		<h1>Enter players</h1>
+		<input id="player-name-1" placeholder="Player 1" data-no="1">
+		<input type="button" id="add-another-player" value="Add another player" >
+		<input type="button" id="play-game" value="Play game">
+		</section>
+
+
+		<section id="bids-and-scores">
+			<h1>Bids and scores</h1>
+			<table id="bids-and-scores-table">
+				<thead>
+					<tr>
+						<th rowspan="2">Round</th>
+					</tr>
+					<tr>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+
+				</table>
+		</section>
+
+
+		<script>
+		getElById = document.getElementById.bind(document);
+		createEl = document.createElement.bind(document);
+
+		let players = ["Player 1"];
+		let totalScores = [0];
+
+		function updatePlayerNames(event) {
+			console.log(event);
+			let el = event.target;
+			const n = Number(el.getAttribute("data-no"));
+			const name = el.value === "" ? `Player ${n}` : el.value;
+			console.log("type of n =", typeof(n));
+			players[n-1] = name;
+			console.log(players);
+
+			el = getElById("th-player-name-" + n);
+			el.innerHTML = name;
+		}
+
+		let el = getElById("player-name-1");
+		el.oninput = updatePlayerNames;
+
+		el = getElById("add-another-player");
+		console.log(el)
+		el.addEventListener('click', event => {
+			console.log(event);
+			console.log(this);
+			let name = `Player ${players.length+1}`;
+			players.push(name);
+			totalScores.push(0);
+			let newInput = createEl("input");
+			newInput.setAttribute("id", "player-name-" + players.length);
+			newInput.setAttribute("placeholder", name);
+			newInput.setAttribute("data-no", players.length);
+			newInput.oninput = updatePlayerNames;
+
+			//let el = getElById("add-another-player");
+			event.target.parentNode.insertBefore(newInput, event.target);
+		});
+
+		function calcTotalBid(event) {
+			let el = event.target;
+			let row = el.parentNode.parentNode.parentNode;
+			let rowId = row.getAttribute('id');
+			let maxVal = Number(row.getAttribute('data-max-value'));
+			console.log(maxVal, typeof(maxVal));
+			let total = 0;
+			for (sel of document.querySelectorAll(`tr#${rowId} select`)) {
+				total += Number(sel.value);
+			}
+			console.log(maxVal, typeof(maxVal), total);
+			let input = document.querySelector(`tr#${rowId} input.play-round`);
+			if (total == maxVal) {
+				input.disabled = true;
+			} else {
+				input.disabled = false;
+			}
+			
+		}
+
+		function playRound(event) {
+			el = event.target;
+			el.disabled = true;
+			let row = el.parentNode.parentNode.parentNode;
+			let rowId = row.getAttribute('id');
+			for (el of document.querySelectorAll(`tr#${rowId} select`)) {
+				el.disabled = true;
+			}
+			for (el of document.querySelectorAll(`tr#${rowId} input[type="checkbox"]`)) {
+				el.disabled = false;
+			}
+			
+		}
+
+		function updateScore(event) {
+			let td = event.target.parentNode.parentNode;
+
+			if (event.target.checked) {
+				score = Number(td.getElementsByTagName('select')[0].value);
+				if (score) {
+					score *= 15;
+				} else {
+					score = 10;
+				}
+			} else {
+				score = 0;
+			}
+			console.log(event.target.checked, score);
+			td  = td.nextSibling;
+			td.innerHTML = score;
+
+			verifyAllEntered(td.parentNode);
+		}
+
+		function verifyAllEntered(row) {
+			const isIndeterminate = (el) => el.indeterminate;
+			let inputs = Array.prototype.slice.call(row.querySelectorAll('input[type="checkbox"]'));
+			if (!inputs.some(isIndeterminate)) {
+				let input = row.querySelectorAll('input[value="calculate score"]')[0];
+				input.disabled = false;
+			}
+		}
+		
+		function createRow(index, tbody, rowId) {
+			let row = createEl('tr');
+			row.setAttribute('id', `row${rowId}`);
+			row.setAttribute('data-max-value', index);
+			row.setAttribute('data-round', rowId);
+			cell = createEl('th');
+			cell.innerHTML = index;
+			row.appendChild(cell);
+
+			for (const _ in players) {
+				cell = createEl('td');
+				let div = createEl('div');
+				let selection = createEl('select');
+				for (let i = 0; i <= index; i++) {
+					selection.appendChild(new Option(i, i));
+				}
+				selection.oninput = calcTotalBid;
+				div.appendChild(selection);
+
+				let checkbox = createEl('input');
+				checkbox.type = "checkbox";
+				checkbox.indeterminate = true;
+				checkbox.disabled = true;
+				checkbox.oninput = updateScore;
+				div.appendChild(checkbox);
+				
+				cell.appendChild(div);
+				row.appendChild(cell);
+				cell = createEl('td');				
+				row.appendChild(cell);
+			}
+
+			cell = createEl('td');
+			div = createEl('div');
+			let input = createEl('input');
+			input.classList.add('play-round');
+			input.type = "button";
+			input.value = "play round";
+			input.onclick = playRound;
+			div.appendChild(input);
+			
+			input = createEl('input');
+			input.type = "button";
+			input.value = "calculate score";
+			input.disabled = true;
+			input.onclick = endRound;
+			div.appendChild(input);
+
+			cell.appendChild(div);			
+			row.appendChild(cell);
+			
+			tbody.appendChild(row);
+		}
+
+		el = getElById("play-game");
+		el.addEventListener('click', event => {
+			event.target.disabled = true;
+			let el = getElById("add-another-player");
+			el.disabled = true;
+			el = getElById("bids-and-scores");
+			el.style.display = "block";
+
+			let table = getElById("bids-and-scores-table");
+			let tbody = table.getElementsByTagName('tbody')[0];
+			el = table.getElementsByTagName('thead')[0];
+			let rows = el.getElementsByTagName('tr');
+			players.forEach( (player, i) => {
+				let cell = createEl('th');
+				cell.setAttribute("id", `th-player-name-${i+1}`);
+				cell.setAttribute("colspan", 2);
+				cell.innerHTML = player;
+				rows[0].appendChild(cell);
+
+				cell = createEl('th');
+				cell.innerHTML = "bid";
+				rows[1].appendChild(cell);
+				cell = createEl('th');
+				cell.innerHTML = "score";
+				rows[1].appendChild(cell);
+			});
+			for (let i = 7; i > 0; i--) {
+				createRow(i, tbody, 8-i);
+			}
+			for (let i = 1; i <= 7; i++) {
+				createRow(i, tbody, 7+i);
+			}
+
+			let row = createEl('tr');
+			row.setAttribute('id', 'totals');
+			cell = createEl('th');
+			cell.innerHTML = 'Total';
+			row.appendChild(cell);
+			players.forEach( (_, i) => {
+				cell = createEl('td');
+				cell.setAttribute('colspan', 2);
+				cell.setAttribute('id', `total${i}`);
+				cell.innerHTML = totalScores[i];
+				row.appendChild(cell);
+			});
+			tbody.appendChild(row);
+			
+			play(1);
+		});
+
+		function play(index) {
+			row = getElById(`row${index}`);
+			row.classList.add('active');
+		}
+
+		function updateTotal() {
+			let i = 0;
+			let row = getElById('totals');
+			for (td of row.getElementsByTagName('td')) {
+				td.innerHTML = totalScores[i];
+				i++;
+			}
+		}
+		
+		function endRound(event) {
+			let row = event.target.parentNode.parentNode.parentNode;
+			let i = 0;
+			for (el of row.querySelectorAll('td:nth-child(odd)')) {
+				let score = Number(el.innerHTML);
+				totalScores[i] += score;
+				i++;
+			}
+			for (input of row.getElementsByTagName('input')) {
+				input.disabled = true;
+			}
+			row.classList.remove('active');
+			row.classList.add('finished');
+
+			updateTotal();
+
+			let index = Number(row.getAttribute('data-round'));
+			play(index+1);
+		}			
+
+
+	</script>
+
+</body>
+
+
+<html>
